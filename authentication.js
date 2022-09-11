@@ -24,4 +24,24 @@ router.post('/loading_admin',authenticateAdminToken,(req,res) => {
     })
 })
 
+router.post('/teacher_login',(req,res) => {
+    const password = req.body.password
+    const username = req.body.username
+
+    const queryString = `SELECT hashed_password FROM teachers WHERE username=${connection.escape(username)};`
+    connection.query(queryString,(error,results,fields) => {
+        if(error || results.length == 0) return res.json({msg:"failed"})
+        const hashed_password = results[0].hashed_password
+
+        bcrypt.compare(password,hashed_password,(error,result) => {
+            if(error) return res.json({msg:"failed"})
+            if(result) {
+                const data = {user:username,type:2}
+                const access_token = jwt.sign(data,teacherKey,{expiresIn:accessTokenDuration})
+                return res.json({msg:"success",access_token:access_token})
+            } else return res.json({msg:"failed"})
+        })
+    })
+})
+
 module.exports = router;
