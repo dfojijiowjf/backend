@@ -20,4 +20,33 @@ router.post('/setupSubject', authenticateAdminToken, (req, res) => {
     })
 })
 
+//Student details post
+router.post('/prefs', authenticateAccessToken, (req, res) => {
+    const studentId = req.user.user
+    const subjectId = req.body.subjectId
+    const background = req.body.background
+    const options = JSON.stringify(req.body.options)
+
+    const queryString = `SELECT name FROM students WHERE student_id=${connection.escape(studentId)};`
+    connection.query(queryString, (error, results, fields) => {
+        console.log(error)
+        if (error || results.length == 0) return res.json({ msg: "failed" })
+        const studentName = results[0].name
+
+        const queryString = `SELECT subjectName FROM subjects WHERE subjectId=${connection.escape(subjectId)};`
+        connection.query(queryString, (error, results, fields) => {
+            console.log(error)
+            if (error || results.length == 0) return res.json({ msg: "failed" })
+            const subjectName = results[0].subjectName
+
+            const queryString = `INSERT INTO student_prefs VALUES(${connection.escape(studentId)},${connection.escape(subjectId)},${connection.escape(background)},${connection.escape(options)},${connection.escape(subjectName)},${connection.escape(studentName)});`
+            connection.query(queryString, (error, results, fields) => {
+                console.log(error)
+                if (error) return res.json({ msg: "failed" })
+                return res.json({ msg: "success", subjectName: subjectName })
+            })
+        })
+    })
+})
+
 module.exports = router;
