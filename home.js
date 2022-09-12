@@ -20,6 +20,17 @@ router.post('/setupSubject', authenticateAdminToken, (req, res) => {
     })
 })
 
+//Teacher get
+router.get('/teacher_info', authenticateTeacherToken, (req, res) => {
+    const queryString = `SELECT * FROM subjects;`
+    connection.query(queryString, (error, results, fields) => {
+        if (error) return res.json({ msg: "failed" })
+        const subjects = results
+
+        return res.json({ msg: "success", subjects: subjects })
+    })
+})
+
 //Student details post
 router.post('/prefs', authenticateAccessToken, (req, res) => {
     const studentId = req.user.user
