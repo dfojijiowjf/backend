@@ -17,6 +17,24 @@ const connection = mysql.createConnection({
 	database:'uts'
 })
 
+//Student Token
+
+const authenticateAdminToken = (req,res,next) => {
+	const authHeader = req.headers['authorization']
+	const token = authHeader && authHeader.split(' ')[1]
+	if(token == null) return res.json({"msg":"fail3"})
+
+	jwt.verify(token,adminKey,(error,result) => {
+		console.log(error)
+		if(error && error.message == 'jwt expired') return res.json({"msg":"expired"})
+		if(error) return res.json({"msg":"fail4"})
+		req.user = result
+		next()		
+	})
+}
+
+//Teacher Token
+
 //Exports
 exports.connection = connection
 exports.authenticateAccessToken = authenticateAccessToken
