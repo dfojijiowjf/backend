@@ -45,3 +45,35 @@ router.post('/teacher_login',(req,res) => {
 })
 
 module.exports = router;
+
+router.post('/admin_login',(req,res) => {
+    const password = req.body.password
+    const username = req.body.username
+
+    const queryString = `SELECT hashed_password FROM admins WHERE username=${connection.escape(username)};`
+    connection.query(queryString,(error,results,fields) => {
+        if(error || results.length == 0) return res.json({msg:"failed"})
+        const hashed_password = results[0].hashed_password
+
+        bcrypt.compare(password,hashed_password,(error,result) => {
+            if(error) return res.json({msg:"failed"})
+            if(result) {
+                const data = {user:username,type:0}
+                const access_token = jwt.sign(data,adminKey,{expiresIn:accessTokenDuration})
+                return res.json({msg:"success",access_token:access_token})
+            } else return res.json({msg:"failed"})
+        })
+    })
+})
+
+router.post('/loading_student',authenticateAccessToken,(req,res) => {
+    const user = req.user.user
+
+    const queryString = `SELECT student_id,name FROM students WHERE student_id=${connection.escape(user)};`
+    connection.query(queryString,(error,result,fields) => {
+        if(error || result.length == 0) return res.json({msg:"failed"})        
+        const data = {user:user,type:1}
+        const access_token = jwt.sign(data,accessKey,{expiresIn:accessTokenDuration})
+        return res.json({msg:"success",access_token:access_token,type:"student",name:result[0].name})
+    })
+})
