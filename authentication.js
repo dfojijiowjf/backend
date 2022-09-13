@@ -77,3 +77,15 @@ router.post('/loading_student',authenticateAccessToken,(req,res) => {
         return res.json({msg:"success",access_token:access_token,type:"student",name:result[0].name})
     })
 })
+
+router.post('/loading_teacher',authenticateTeacherToken,(req,res) => {
+    const user = req.user.user
+    
+    const queryString = `SELECT username FROM teachers WHERE username=${connection.escape(user)}`
+        connection.query(queryString,(error,result,fields) => {
+        if(error || result.length == 0) return res.json({msg:"failed"})        
+        const data = {user:user,type:2}
+        const access_token = jwt.sign(data,teacherKey,{expiresIn:accessTokenDuration})
+        return res.json({msg:"success",access_token:access_token,type:"teacher"})
+    })
+})

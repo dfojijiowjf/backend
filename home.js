@@ -156,3 +156,30 @@ router.get('/student_info', authenticateAccessToken, (req, res) => {
         })
     })
 })
+
+router.post('/manualAssign', authenticateTeacherToken, (req, res) => {
+    const groupId = req.body.groupId
+    const studentId = req.body.studentId
+    const subjectId = req.body.subjectId
+    const groupName = req.body.groupName
+
+    const queryString = `INSERT INTO group_member VALUES(${connection.escape(groupId)},${connection.escape(studentId)},${connection.escape(subjectId)},${connection.escape(groupName)});`
+    connection.query(queryString, (error, results, fields) => {
+        if (error) return res.json({ msg: "failed" })
+
+        const queryString = `UPDATE student_groups SET numStudents=numStudents+1 WHERE groupId=${connection.escape(groupId)};`
+        connection.query(queryString, (error, results, fields) => {
+            if (error) return res.json({ msg: "failed" })
+            return res.json({ msg: "success" })
+        })
+    })
+})
+
+router.get('/admin_info', authenticateAdminToken, (req, res) => {
+    const queryString = `SELECT * FROM subjects;`
+    connection.query(queryString, (error, results, fields) => {
+        if (error) return res.json({ msg: "failed" })
+        const subjects = results
+        return res.json({ msg: "success", subjects: subjects })
+    })
+})

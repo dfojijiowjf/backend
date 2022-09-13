@@ -48,6 +48,20 @@ const authenticateTeacherToken = (req,res,next) => {
 	})
 }
 
+//Access Token
+const authenticateAccessToken = (req,res,next) => {
+	const authHeader = req.headers['authorization']
+	const token = authHeader && authHeader.split(' ')[1]
+	if(token == null) return res.json({"msg":"fail1"})
+
+	jwt.verify(token,accessKey,(error,result) => {
+		if(error && error.message == 'jwt expired') return res.json({"msg":"expired"})
+		if(error) return res.json({"msg":"fail2"})
+		req.user = result
+		next()		
+	})
+}
+
 
 //Exports
 exports.connection = connection
