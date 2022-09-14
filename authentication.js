@@ -26,7 +26,7 @@ router.post('/loading_admin',authenticateAdminToken,(req,res) => {
 
 router.post('/loading_student',authenticateAccessToken,(req,res) => {
     const user = req.user.user
-//test
+    
     const queryString = `SELECT student_id,name FROM students WHERE student_id=${connection.escape(user)};`
     connection.query(queryString,(error,result,fields) => {
         if(error || result.length == 0) return res.json({msg:"failed"})        
