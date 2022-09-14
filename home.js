@@ -60,7 +60,6 @@ router.post('/prefs', authenticateAccessToken, (req, res) => {
     })
 })
 
-module.exports = router;
 
 
 router.get('/subject_info/:subjectId', authenticateTeacherToken, (req, res) => {
@@ -183,3 +182,6 @@ router.get('/admin_info', authenticateAdminToken, (req, res) => {
         return res.json({ msg: "success", subjects: subjects })
     })
 })
+
+
+module.exports = router;
