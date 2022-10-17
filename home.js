@@ -60,6 +60,128 @@ router.post('/prefs', authenticateAccessToken, (req, res) => {
     })
 })
 
+router.get('/automaticAssign/:subjectId', authenticateTeacherToken, (req, res) => {
+    const subjectId = req.params.subjectId
+
+    const queryString = `SELECT studentsPerGroup FROM subjects WHERE subjectId=${connection.escape(subjectId)};`
+    connection.query(queryString, (error, results, fields) => {
+        if (error) return res.json({ msg: "failed" })
+        const studentsPerGroup = results[0].studentsPerGroup
+
+        const queryString = `
+        SELECT student_prefs.studentId,background,topic,name,groupName FROM student_prefs
+            LEFT JOIN group_member ON ((student_prefs.studentId=group_member.studentId) AND (student_prefs.subjectId=group_member.subjectId))
+            WHERE student_prefs.subjectId=${connection.escape(subjectId)};
+        `
+        connection.query(queryString, (error, results, fields) => {
+            if (error) return res.json({ msg: "failed" })
+            var poolOfStudents = results
+            var groups = []
+            var notFilledGroups = []
+
+            //Loop thru student, each time u find another student with same pref add to group
+            while(poolOfStudents.length != 0) {
+            // for (var i = 0; i < poolOfStudents.length; i++) {
+                const student = poolOfStudents[0]
+                const topic = student.topic
+                var matchedStudentsId = [student.studentId]
+                var matchedStudents = [student]
+
+                poolOfStudents = poolOfStudents.filter(s => {
+                    if(s.studentId == student.studentId) {
+                        return false
+                    } else {
+                        return true
+                    } 
+                })
+                
+                //For students with no similarities then gotta send them to the extra group
+                for (var x=0; x < poolOfStudents.length; x++) {
+                    const student2 = poolOfStudents[x]
+                    const topic2 = student2.topic
+                    
+                    
+                    if (topic == topic2) {
+                        matchedStudents.push(student2) 
+                        matchedStudentsId.push(student2.studentId)      
+                    }
+
+                    if(matchedStudents.length == studentsPerGroup) {
+                        break
+                    }
+                }
+                //Filter from pool for members in matchedStudents
+                poolOfStudents = poolOfStudents.filter(s => {
+                    if(matchedStudentsId.includes(s.studentId)) {
+                        return false
+                    } else {
+                        return true
+                    } 
+                })
+                
+                if(matchedStudents.length == studentsPerGroup) {
+                    groups.push(matchedStudents)
+                } else {
+                    notFilledGroups.push(matchedStudents)
+                }
+            }
+            
+            //Loop thru each notfilled group and add it with another group to try and fill it up
+            //Double for loop, start at element 1, if i+(i+1) <= maxStudents add together and then make that one gruop and keep going
+                //If not then that is a group
+            //Sort so the non filled groups with the lowest amount of members are first to form as many grousps
+
+            var sortedNotFilledGroups = notFilledGroups.sort((a,b) => a.length - b.length)
+            var t = [...sortedNotFilledGroups[0]]
+
+            for(var i=1;i<sortedNotFilledGroups.length;i++) {
+                const c = sortedNotFilledGroups[i]
+                const x = t.length + c.length > studentsPerGroup
+
+                if(x == true) {
+                    groups.push(t)
+                    t = [...c]
+                } else {
+                    t = [...t,...c]
+                }
+
+                if(i == sortedNotFilledGroups.length - 1) {                    
+                    groups.push(t)
+                }
+            }
+
+            var groupString = ""
+            var memberString = ""
+
+            groups.map((group,idx) => {
+                const groupId = uuidv4()
+                const groupName = `Group ${idx+1}`
+                groupString += `("${groupId}",${connection.escape(subjectId)},"${groupName}",${group.length}),`
+
+                for(var i=0;i<group.length;i++) {
+                    const member = group[i]
+
+                    memberString += `(${connection.escape(groupId)},${connection.escape(member.studentId)},${connection.escape(subjectId)},${connection.escape(groupName)}),`
+                }
+            })
+            memberString = memberString.substring(0,memberString.length-1)
+            groupString = groupString.substring(0,groupString.length-1)
+
+            const queryString = `INSERT INTO student_groups VALUES${groupString};`
+            connection.query(queryString, (error, results, fields) => {
+                if (error) return res.json({ msg: "failed" })
+
+               
+                const queryString = `INSERT INTO group_member VALUES${memberString};`
+                connection.query(queryString, (error, results, fields) => {
+                    if (error) return res.json({ msg: "failed" })
+
+                    return res.json({ msg: "success" })
+                })
+            })
+        })
+    })
+})
 
 
 router.get('/subject_info/:subjectId', authenticateTeacherToken, (req, res) => {
