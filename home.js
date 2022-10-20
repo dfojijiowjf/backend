@@ -60,6 +60,79 @@ router.post('/prefs', authenticateAccessToken, (req, res) => {
     })
 })
 
+router.get('/randomAssign/:subjectId', authenticateTeacherToken, (req, res) => {
+    const subjectId = req.params.subjectId
+
+    const queryString = `SELECT groupId,name,numStudents,studentsPerGroup 
+    FROM student_groups INNER JOIN subjects ON student_groups.subjectId=subjects.subjectId
+    WHERE subjects.subjectId=${connection.escape(subjectId)};`
+    connection.query(queryString, (error, results, fields) => {
+        console.log(error)
+        if (error) return res.json({ msg: "failed" })
+        if (results.length == 0) return res.json({ msg: "empty" })
+        const groups = results
+
+        const queryString = `SELECT student_prefs.studentId,background,topic,name,groupName FROM student_prefs
+            LEFT JOIN group_member ON ((student_prefs.studentId=group_member.studentId) AND (student_prefs.subjectId=group_member.subjectId))
+            WHERE student_prefs.subjectId=${connection.escape(subjectId)};
+        `
+        connection.query(queryString, (error, results, fields) => {
+            console.log(error)
+            if (error) return res.json({ msg: "failed" })
+            const students = results
+
+            const maxStudents = groups[0].studentsPerGroup
+            var groupIdToNumStudents = {}
+            var groupIdToName = {}
+            var groupIds = []
+            groups.map(group => {
+                if (group.numStudents < maxStudents) {
+                    groupIds.push(group.groupId)
+                    groupIdToNumStudents[group.groupId] = group.numStudents
+                    groupIdToName[group.groupId] = group.name
+                }
+            })
+
+            //Need to check theres enough groups/spots for the students
+            //(numGroups * numMaxStudents) < students.length then not enough spots
+            if (groups.length * maxStudents < students.length) return res.json({ msg: 'not-enough-groups' })
+
+            var studentsToAddString = ''
+
+            for (var i = 0; i < groupIds.length; i++) {
+                const id = groupIds[i]
+                var numStudentsInGroup = groupIdToNumStudents[id]
+
+                //for already assigned students dont move them
+                //when you assign a student need to remove them from the pool of students
+                for (var x = 0; x < students.length; x++) {
+                    const student = students[x]
+                    if (student.groupName != "") continue
+
+                    studentsToAddString += `(${connection.escape(id)},${connection.escape(student.studentId)},${connection.escape(subjectId)},${connection.escape(groupIdToName[id])}),`
+                    numStudentsInGroup += 1
+                    if (numStudentsInGroup >= maxStudents) break
+                }
+                groupIdToName[id] = numStudentsInGroup
+            }
+
+            studentsToAddString = studentsToAddString.length == 0 ? null : studentsToAddString.substring(0, studentsToAddString.length - 1)
+
+            const queryString = studentsToAddString == null ? 'SELECT NULL;' : `INSERT INTO student_groups VALUES${studentsToAddString};`
+            connection.query(queryString, (error, results, fields) => {
+                console.log(error)
+                if (error) return res.json({ msg: "failed" })
+
+                updateGroups(groupIdToNumStudents, (error) => {
+                    if (error.length != 0) return res.json({ msg: "error" })
+
+                    return res.json({ msg: "success" })
+                })
+            })
+        })
+    })
+})
+
 router.get('/automaticAssign/:subjectId', authenticateTeacherToken, (req, res) => {
     const subjectId = req.params.subjectId
 
